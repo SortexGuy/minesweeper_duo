@@ -9,17 +9,24 @@ class MainMenu extends StatelessWidget {
     return Scaffold(
       body: Center(
         child: Column(
+          spacing: 12.0,
           children: [
-            Text('Minesweeper Duo'),
+            Spacer(),
+            const Text('Minesweeper Duo', style: TextStyle(fontSize: 46.0)),
+            SizedBox.square(dimension: 16.0),
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(builder: (context) => const MainGame()),
                 );
               },
-              child: Text('Play'),
+              child: Text('Join Game', style: TextStyle(fontSize: 24.0)),
             ),
-            ElevatedButton(onPressed: () {}, child: Text('Options')),
+            ElevatedButton(
+              onPressed: () {},
+              child: Text('Host Game', style: TextStyle(fontSize: 24.0)),
+            ),
+            Spacer(),
           ],
         ),
       ),
