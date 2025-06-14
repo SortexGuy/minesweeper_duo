@@ -7,6 +7,9 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
+  socket_io_client: ^2.0.2
+  network_info_plus: ^4.1.0
+  uuid: ^3.0.7
   flutter:
     sdk: flutter
   flame: ^1.28.0

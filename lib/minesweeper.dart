@@ -18,6 +18,7 @@ class Minesweeper extends FlameGame with TapDetector {
   @override
   Future<void> onLoad() async {
     super.onLoad();
+    Random rand = Random(1);
     // await Flame.images.load('klondike-sprites.png');
 
     // Create empty grid
@@ -29,8 +30,8 @@ class Minesweeper extends FlameGame with TapDetector {
     // Place bombs randomly
     var bombsPlaced = 0;
     while (bombsPlaced < bombCount) {
-      final x = Random().nextInt(gridSize);
-      final y = Random().nextInt(gridSize);
+      final x = rand.nextInt(gridSize);
+      final y = rand.nextInt(gridSize);
 
       if (!grid[x][y].isBomb) {
         grid[x][y].isBomb = true;
