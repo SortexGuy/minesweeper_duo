@@ -2,8 +2,9 @@
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:minesweeper_duo/minesweeper.dart';
 import 'package:network_info_plus/network_info_plus.dart';
-import '../p2p_minesweeper.dart';
+import '../duo_ms.dart';
 
 class P2PLobbyScreen extends StatefulWidget {
   const P2PLobbyScreen({super.key});
@@ -14,6 +15,7 @@ class P2PLobbyScreen extends StatefulWidget {
 
 class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
   final ipController = TextEditingController();
+  final portController = TextEditingController();
   final gameIdController = TextEditingController();
   String? localIp;
 
@@ -43,16 +45,54 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    const Text('Host Game', style: TextStyle(fontSize: 20)),
-                    if (localIp != null) Text('Your IP: $localIp'),
+                    const Text('Local Game', style: TextStyle(fontSize: 20)),
                     ElevatedButton(
                       onPressed: () {
-                        final game = P2PMinesweeperGame();
-                        game.isHost = true;
+                        final game = Minesweeper();
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => GameWidget(game: game),
+                          ),
+                        );
+                      },
+                      child: const Text('Play locally'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Text('Host Game', style: TextStyle(fontSize: 20)),
+                    if (localIp != null) Text('Your IP: $localIp'),
+                    TextField(
+                      controller: portController,
+                      decoration: const InputDecoration(
+                        labelText: 'Hosting port',
+                        hintText: '3000',
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => GameWidget(
+                                  game: MinesweeperGame(
+                                    isHost: true,
+                                    localIp: localIp,
+                                    port:
+                                        portController.text.isNotEmpty
+                                            ? portController.text
+                                            : '3000',
+                                  ),
+                                ),
                           ),
                         );
                       },
@@ -76,6 +116,13 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                       ),
                     ),
                     TextField(
+                      controller: portController,
+                      decoration: const InputDecoration(
+                        labelText: 'Hosting port',
+                        hintText: '3000',
+                      ),
+                    ),
+                    TextField(
                       controller: gameIdController,
                       decoration: const InputDecoration(
                         labelText: 'Game ID (if required)',
@@ -83,13 +130,20 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                     ),
                     ElevatedButton(
                       onPressed: () {
-                        final game = P2PMinesweeperGame();
-                        game.gameId = gameIdController.text;
-                        game.connectToHost(ipController.text);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => GameWidget(game: game),
+                            builder:
+                                (context) => GameWidget(
+                                  game: MinesweeperGame(
+                                    isHost: false,
+                                    localIp: ipController.text,
+                                    port:
+                                        portController.text.isNotEmpty
+                                            ? portController.text
+                                            : '3000',
+                                  ),
+                                ),
                           ),
                         );
                       },

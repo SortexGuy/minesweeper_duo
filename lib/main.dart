@@ -1,6 +1,5 @@
 import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
-// import 'package:minesweeper_duo/screens/main_menu.dart';
 import 'package:minesweeper_duo/screens/p2p_lobby_screen.dart';
 
 void main() {

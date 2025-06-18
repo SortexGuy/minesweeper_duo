@@ -2,7 +2,6 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'screens/main_menu.dart';
 
 class Minesweeper extends FlameGame with TapDetector {
   // Game constants
@@ -185,9 +184,7 @@ class Minesweeper extends FlameGame with TapDetector {
       gameWon = false;
 
       var context = buildContext!;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const MainMenu()),
-      );
+      Navigator.pop(context);
       return;
     }
 
