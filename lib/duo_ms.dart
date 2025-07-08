@@ -35,18 +35,21 @@ class Event {
   Event(this.data, {required this.type});
 
   factory Event.fromJson(Map<String, dynamic> json) =>
-      Event(json['data'], type: EventType.values[int.parse(json['type'])]);
+      Event(json['data'], type: EventType.values[json['type']]);
   Map<String, dynamic> toJson() => <String, dynamic>{
     'type': type.index,
     'data': data,
   };
 
-  factory Event.fromStart(dynamic grid, int playerIdx, int currPlayer) =>
-      Event(<String, dynamic>{
-        'grid': grid,
-        'playerIndex': playerIdx,
-        'currentPlayer': currPlayer,
-      }, type: EventType.start);
+  factory Event.fromStart(
+    List<List<Cell>> grid,
+    int playerIdx,
+    int currPlayer,
+  ) => Event(<String, dynamic>{
+    'grid': grid,
+    'playerIndex': playerIdx,
+    'currentPlayer': currPlayer,
+  }, type: EventType.start);
 
   factory Event.fromGameUpdate(int x, int y, int currPlayer) => Event(
     <String, dynamic>{'x': x, 'y': y, 'currentPlayer': currPlayer},
@@ -140,8 +143,8 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
     super.render(canvas);
 
     // Draw grid
-    if (!isConnected) {
-      // _drawGrid(canvas);
+    if (isConnected) {
+      _drawGrid(canvas);
     }
 
     // Draw turn indicator
@@ -280,16 +283,8 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
         connectionStatus = 'Player connected!';
         playerIndex = 0;
 
-        _sendEvent(
-          Event.fromStart(
-            grid
-                .map((row) => row.map((cell) => cell.toJson()).toList())
-                .toList(),
-            1,
-            currentPlayer,
-          ),
-        );
-        _sendEvent(Event.fromNotify('Sucessfuly connected!!!'));
+        _sendEvent(Event.fromStart(grid, 1, currentPlayer));
+        // _sendEvent(Event.fromNotify('Sucessfuly connected!!!'));
       });
     } catch (e) {
       connectionStatus = 'Error: $e';
@@ -327,8 +322,9 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   }
 
   void _handleNetworkEvents(Uint8List data) {
+    Event event;
     final message = jsonDecode(String.fromCharCodes(data));
-    Event event = Event.fromJson(message);
+    event = Event.fromJson(message);
     switch (event.type) {
       case EventType.start:
         grid =
@@ -345,12 +341,17 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
         break;
 
       case EventType.gameUpdate:
+        print(event);
         grid[event.data['x']][event.data['y']].isRevealed = true;
         currentPlayer = event.data['currentPlayer'];
         break;
 
       case EventType.revealCell:
-        grid[event.data['x']][event.data['y']].isRevealed = true;
+        final x = event.data['x'];
+        final y = event.data['y'];
+        grid[x][y].isRevealed = true;
+        currentPlayer = (currentPlayer + 1) % 2;
+        _sendEvent(Event.fromGameUpdate(x, y, currentPlayer));
         break;
 
       case EventType.gameOver:
@@ -372,7 +373,6 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
     if (socket != null) {
       final msg = event.toJson();
       String json = jsonEncode(msg);
-      print(json);
       socket!.write(json);
       await socket!.flush();
     }
@@ -423,13 +423,13 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
         y >= 0 &&
         y < gridSize &&
         !grid[x][y].isRevealed) {
-      if (isHost) {
-        // Host validates the move
-        _handleCellReveal(x, y);
-      } else {
-        // Client sends move to host
-        _sendEvent(Event.fromRevealCell(x, y));
-      }
+      // if (isHost) {
+      //   // Host validates the move
+      _handleCellReveal(x, y);
+      // } else {
+      //   // Client sends move to host
+      //   _sendEvent(Event.fromRevealCell(x, y));
+      // }
     }
   }
 
@@ -441,9 +441,10 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
     _sendEvent(Event.fromGameUpdate(x, y, currentPlayer));
 
     if (grid[x][y].isBomb) {
-      _sendEvent(Event.fromGameOver((playerIndex! + 1) % 2));
       gameOver = true;
       gameWon = false;
+      sleep(Durations.long2);
+      _sendEvent(Event.fromGameOver((playerIndex! + 1) % 2));
       return;
     }
 
