@@ -1,10 +1,13 @@
 // ignore_for_file: library_private_types_in_public_api
 
+import 'dart:io';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:minesweeper_duo/minesweeper.dart';
 import 'package:network_info_plus/network_info_plus.dart';
-import '../duo_ms.dart';
+import 'package:udp/udp.dart';
+import '../duo_udp_ms.dart';
 
 class P2PLobbyScreen extends StatefulWidget {
   const P2PLobbyScreen({super.key});
@@ -86,11 +89,14 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                                 (context) => GameWidget(
                                   game: MinesweeperGame(
                                     isHost: true,
-                                    localIp: localIp,
-                                    port:
+                                    localIp: InternetAddress.tryParse(localIp!),
+                                    port: Port(
+                                      int.parse(
                                         portController.text.isNotEmpty
                                             ? portController.text
                                             : '3000',
+                                      ),
+                                    ),
                                   ),
                                 ),
                           ),
@@ -137,11 +143,14 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                                 (context) => GameWidget(
                                   game: MinesweeperGame(
                                     isHost: false,
-                                    localIp: ipController.text,
-                                    port:
+                                    localIp: InternetAddress.tryParse(localIp!),
+                                    port: Port(
+                                      int.parse(
                                         portController.text.isNotEmpty
                                             ? portController.text
                                             : '3000',
+                                      ),
+                                    ),
                                   ),
                                 ),
                           ),

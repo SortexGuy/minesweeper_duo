@@ -1,0 +1,630 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+import 'package:flame/components.dart';
+import 'package:flame/events.dart';
+import 'package:flame/game.dart';
+import 'package:flame/input.dart';
+import 'package:flutter/material.dart';
+import 'package:udp/udp.dart';
+
+enum ConnectionStatus { waiting, connected, closed }
+
+extension ConnectionStatusExtension on ConnectionStatus {
+  String get name {
+    switch (this) {
+      case ConnectionStatus.waiting:
+        return 'Waiting for other player';
+      case ConnectionStatus.connected:
+        return 'Connection stablished!!';
+      case ConnectionStatus.closed:
+        return 'Connection closed!';
+    }
+  }
+}
+
+enum EventType {
+  start,
+  gameUpdate,
+  revealCell,
+  gameOver,
+  notify,
+  error,
+  ping,
+  pong,
+}
+
+class Event {
+  final EventType type;
+  final dynamic data;
+
+  Event(this.data, {required this.type});
+
+  factory Event.fromJson(Map<String, dynamic> json) =>
+      Event(json['data'], type: EventType.values[json['type']]);
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'type': type.index,
+    'data': data,
+  };
+
+  factory Event.fromStart(
+    List<List<Cell>> grid,
+    int playerIdx,
+    int currPlayer,
+  ) => Event(<String, dynamic>{
+    'grid': grid,
+    'playerIndex': playerIdx,
+    'currentPlayer': currPlayer,
+  }, type: EventType.start);
+
+  factory Event.fromGameUpdate(int x, int y, int currPlayer) => Event(
+    <String, dynamic>{'x': x, 'y': y, 'currentPlayer': currPlayer},
+    type: EventType.gameUpdate,
+  );
+
+  factory Event.fromRevealCell(int x, int y) =>
+      Event(<String, dynamic>{'x': x, 'y': y}, type: EventType.revealCell);
+
+  factory Event.fromGameOver(int winner) =>
+      Event(<String, dynamic>{'winner': winner}, type: EventType.gameOver);
+
+  factory Event.fromNotify(String message) =>
+      Event(<String, dynamic>{'message': message}, type: EventType.notify);
+
+  factory Event.fromError(String message) =>
+      Event(<String, dynamic>{'message': message}, type: EventType.error);
+
+  factory Event.fromPing() => Event(null, type: EventType.ping);
+
+  factory Event.fromPong() => Event(null, type: EventType.pong);
+}
+
+class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
+  final bool isHost;
+  final InternetAddress? localIp;
+  final Port? port;
+
+  UDP? udpSocket;
+  InternetAddress? remoteAddress;
+  Port? remotePort;
+  String gameId = "";
+  ConnectionStatus cStatus = ConnectionStatus.waiting;
+  String connectionStatus = 'Initializing...';
+  bool isConnected = false;
+  int? playerIndex;
+  int currentPlayer = 0;
+  bool gameOver = false;
+  bool gameWon = false;
+
+  // Connection management
+  Timer? pingTimer;
+  Timer? connectionTimeoutTimer;
+  DateTime? lastPongReceived;
+  static const Duration pingInterval = Duration(seconds: 5);
+  static const Duration connectionTimeout = Duration(seconds: 15);
+
+  // Game settings
+  static const int gridSize = 10;
+  static const int bombCount = 15;
+  static const double cellSize = 40.0;
+  late List<List<Cell>> grid;
+
+  // UI elements
+  late TextBoxComponent statusText;
+  late TextBoxComponent ipDisplay;
+
+  MinesweeperGame({
+    required this.isHost,
+    required this.localIp,
+    required this.port,
+  });
+
+  @override
+  Future<void> onLoad() async {
+    super.onLoad();
+    initializeGrid();
+
+    // Setup UI components
+    statusText = TextBoxComponent(
+      text: connectionStatus,
+      anchor: Anchor.bottomLeft,
+      position: Vector2(30, size.y - 30),
+      textRenderer: TextPaint(
+        style: const TextStyle(color: Colors.red, fontSize: 16),
+      ),
+    );
+
+    if (isHost) {
+      await _startUDPServer();
+    } else {
+      await _connectToHost();
+    }
+
+    add(statusText);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    statusText.text = connectionStatus;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+
+    // Draw grid
+    if (isConnected) {
+      _drawGrid(canvas);
+    }
+
+    // Draw turn indicator
+    if (playerIndex != null) {
+      final turnText =
+          currentPlayer == playerIndex ? 'Your turn' : 'Opponent\'s turn';
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: turnText,
+          style: TextStyle(
+            color: currentPlayer == playerIndex ? Colors.green : Colors.red,
+            fontSize: 20,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(canvas, Offset(size.x - textPainter.width - 10, 10));
+    }
+
+    // Draw game over message
+    if (gameOver) {
+      final text = gameWon ? 'You Won!' : 'Game Over!';
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: const TextStyle(
+            color: Colors.red,
+            fontSize: 48,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          size.x / 2 - textPainter.width / 2,
+          size.y / 2 - textPainter.height / 2,
+        ),
+      );
+    }
+  }
+
+  void _drawGrid(Canvas canvas) {
+    for (var x = 0; x < gridSize; x++) {
+      for (var y = 0; y < gridSize; y++) {
+        final cell = grid[x][y];
+        final rect = Rect.fromLTWH(
+          x * cellSize,
+          y * cellSize + 50, // Offset for status bar
+          cellSize,
+          cellSize,
+        );
+
+        // Draw cell background
+        final paint =
+            Paint()
+              ..color = cell.isRevealed ? Colors.white : Colors.grey
+              ..style = PaintingStyle.fill;
+        canvas.drawRect(rect, paint);
+
+        // Draw border
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..color = Colors.black
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
+        );
+
+        // Draw content
+        if (cell.isRevealed) {
+          if (cell.isBomb) {
+            // Draw bomb
+            canvas.drawCircle(
+              Offset(
+                x * cellSize + cellSize / 2,
+                y * cellSize + 50 + cellSize / 2,
+              ),
+              cellSize / 3,
+              Paint()..color = Colors.black,
+            );
+          } else if (cell.adjacentBombs > 0) {
+            // Draw number
+            final textPainter = TextPainter(
+              text: TextSpan(
+                text: cell.adjacentBombs.toString(),
+                style: TextStyle(
+                  color: _getNumberColor(cell.adjacentBombs),
+                  fontSize: cellSize / 2,
+                ),
+              ),
+              textDirection: TextDirection.ltr,
+            )..layout();
+            textPainter.paint(
+              canvas,
+              Offset(
+                x * cellSize + cellSize / 2 - textPainter.width / 2,
+                y * cellSize + 50 + cellSize / 2 - textPainter.height / 2,
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _startUDPServer() async {
+    try {
+      udpSocket = await UDP.bind(
+        Endpoint.unicast(
+          localIp ?? InternetAddress.anyIPv4,
+          port: port ?? Port(3000),
+        ),
+      );
+
+      connectionStatus = 'Waiting for player...';
+
+      // Listen for incoming messages
+      udpSocket!.asStream().listen((datagram) {
+        if (datagram != null) {
+          _handleUDPMessage(datagram);
+        }
+      });
+
+      // Start connection timeout timer
+      connectionTimeoutTimer = Timer(
+        connectionTimeout.inSeconds.toDouble(),
+        onTick: () {
+          if (!isConnected) {
+            connectionStatus = 'Connection timeout - no player joined';
+            cStatus = ConnectionStatus.closed;
+          }
+        },
+      );
+    } catch (e) {
+      connectionStatus = 'Error starting server: $e';
+    }
+  }
+
+  Future<void> _connectToHost() async {
+    try {
+      udpSocket = await UDP.bind(Endpoint.any());
+
+      // Set remote address
+      remoteAddress = localIp ?? InternetAddress.loopbackIPv4;
+      remotePort = port ?? Port(3000);
+
+      connectionStatus = 'Connecting to host...';
+
+      // Listen for incoming messages
+      udpSocket!.asStream().listen((datagram) {
+        if (datagram != null) {
+          _handleUDPMessage(datagram);
+        }
+      });
+
+      // Send initial connection message
+      await _sendEvent(Event.fromNotify('Client connecting'));
+
+      // Start connection timeout timer
+      connectionTimeoutTimer = Timer(
+        connectionTimeout.inSeconds.toDouble(),
+        onTick: () {
+          if (!isConnected) {
+            connectionStatus = 'Connection timeout - host not responding';
+            cStatus = ConnectionStatus.closed;
+          }
+        },
+      );
+    } catch (e) {
+      connectionStatus = 'Connection failed: $e';
+    }
+  }
+
+  void _handleUDPMessage(Datagram datagram) {
+    try {
+      final message = String.fromCharCodes(datagram.data);
+      final event = Event.fromJson(jsonDecode(message));
+
+      // Store remote address for responses (for host)
+      if (isHost && remoteAddress == null) {
+        remoteAddress = datagram.address;
+        remotePort = Port(datagram.port);
+
+        // Connection established
+        isConnected = true;
+        cStatus = ConnectionStatus.connected;
+        connectionStatus = 'Player connected!';
+        playerIndex = 0;
+
+        // Cancel timeout timer
+        connectionTimeoutTimer?.stop();
+
+        // Start the game
+        _sendEvent(Event.fromStart(grid, 1, currentPlayer));
+
+        // Start ping timer
+        _startPingTimer();
+      } else if (!isHost && !isConnected) {
+        // Client receiving first response from host
+        isConnected = true;
+        connectionStatus = 'Connected to host!';
+        cStatus = ConnectionStatus.connected;
+
+        // Cancel timeout timer
+        connectionTimeoutTimer?.stop();
+
+        // Start ping timer
+        _startPingTimer();
+      }
+
+      _handleNetworkEvents(event);
+    } catch (e) {
+      print('Error handling UDP message: $e');
+    }
+  }
+
+  void _handleNetworkEvents(Event event) {
+    switch (event.type) {
+      case EventType.start:
+        grid =
+            (event.data['grid'] as List)
+                .map<List<Cell>>(
+                  (row) =>
+                      (row as List)
+                          .map<Cell>((cell) => Cell.fromJson(cell))
+                          .toList(),
+                )
+                .toList();
+        playerIndex = event.data['playerIndex'];
+        currentPlayer = event.data['currentPlayer'];
+        break;
+
+      case EventType.gameUpdate:
+        grid[event.data['x']][event.data['y']].isRevealed = true;
+        currentPlayer = event.data['currentPlayer'];
+        break;
+
+      case EventType.revealCell:
+        final x = event.data['x'];
+        final y = event.data['y'];
+        grid[x][y].isRevealed = true;
+        currentPlayer = (currentPlayer + 1) % 2;
+        _sendEvent(Event.fromGameUpdate(x, y, currentPlayer));
+        break;
+
+      case EventType.gameOver:
+        gameOver = true;
+        gameWon = event.data['winner'] == playerIndex;
+        _stopPingTimer();
+        break;
+
+      case EventType.notify:
+        connectionStatus = event.data['message'];
+        break;
+
+      case EventType.error:
+        connectionStatus = event.data['message'];
+        break;
+
+      case EventType.ping:
+        // Respond with pong
+        _sendEvent(Event.fromPong());
+        break;
+
+      case EventType.pong:
+        // Update last pong received time
+        lastPongReceived = DateTime.now();
+        break;
+    }
+  }
+
+  Future<void> _sendEvent(Event event) async {
+    if (udpSocket != null && remoteAddress != null && remotePort != null) {
+      try {
+        final message = jsonEncode(event.toJson());
+        final data = Uint8List.fromList(message.codeUnits);
+
+        await udpSocket!.send(
+          data,
+          Endpoint.unicast(remoteAddress!, port: remotePort!),
+        );
+      } catch (e) {
+        print('Error sending UDP message: $e');
+      }
+    }
+  }
+
+  void _startPingTimer() {
+    lastPongReceived = DateTime.now();
+    pingTimer = Timer(
+      pingInterval.inSeconds.toDouble(),
+      repeat: true,
+      onTick: () {
+        if (isConnected) {
+          _sendEvent(Event.fromPing());
+
+          // Check if connection is still alive
+          if (lastPongReceived != null &&
+              DateTime.now().difference(lastPongReceived!) >
+                  connectionTimeout) {
+            _handleConnectionLost();
+          }
+        }
+      },
+    );
+  }
+
+  void _stopPingTimer() {
+    pingTimer?.stop();
+    pingTimer = null;
+  }
+
+  void _handleConnectionLost() {
+    isConnected = false;
+    cStatus = ConnectionStatus.closed;
+    connectionStatus = 'Connection lost!';
+    _stopPingTimer();
+    connectionTimeoutTimer?.stop();
+  }
+
+  void initializeGrid() {
+    grid = List.generate(
+      gridSize,
+      (x) => List.generate(gridSize, (y) => Cell(x, y, false, false, 0)),
+    );
+
+    // Place bombs randomly
+    var bombsPlaced = 0;
+    final random = Random();
+    while (bombsPlaced < bombCount) {
+      final x = random.nextInt(gridSize);
+      final y = random.nextInt(gridSize);
+
+      if (!grid[x][y].isBomb) {
+        grid[x][y].isBomb = true;
+        bombsPlaced++;
+
+        // Update adjacent cells' bomb counts
+        for (var dx = -1; dx <= 1; dx++) {
+          for (var dy = -1; dy <= 1; dy++) {
+            if (dx == 0 && dy == 0) continue;
+            final nx = x + dx;
+            final ny = y + dy;
+            if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+              grid[nx][ny].adjacentBombs++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @override
+  void onTapDown(TapDownInfo info) {
+    if (!gameOver) {
+      if (playerIndex == null || currentPlayer != playerIndex) return;
+
+      final position = info.eventPosition.widget;
+      final x = (position.x / cellSize).floor();
+      final y = ((position.y - 50) / cellSize).floor(); // Adjust for status bar
+
+      if (x >= 0 &&
+          x < gridSize &&
+          y >= 0 &&
+          y < gridSize &&
+          !grid[x][y].isRevealed) {
+        _handleCellReveal(x, y);
+      }
+    } else {
+      var context = buildContext!;
+      Navigator.pop(context);
+    }
+  }
+
+  void _handleCellReveal(int x, int y) {
+    grid[x][y].isRevealed = true;
+
+    // Switch turns
+    currentPlayer = (currentPlayer + 1) % 2;
+    _sendEvent(Event.fromGameUpdate(x, y, currentPlayer));
+
+    if (grid[x][y].isBomb) {
+      gameOver = true;
+      gameWon = false;
+      _sendEvent(Event.fromGameOver((playerIndex! + 1) % 2));
+      return;
+    }
+
+    // Check for win condition
+    _checkWinCondition();
+  }
+
+  void _checkWinCondition() {
+    var unrevealedSafeCells = 0;
+    for (var row in grid) {
+      for (var cell in row) {
+        if (!cell.isBomb && !cell.isRevealed) {
+          unrevealedSafeCells++;
+        }
+      }
+    }
+    if (unrevealedSafeCells == 0) {
+      _sendEvent(Event.fromGameOver(playerIndex!));
+      gameOver = true;
+      gameWon = true;
+    }
+  }
+
+  Color _getNumberColor(int number) {
+    switch (number) {
+      case 1:
+        return Colors.blue;
+      case 2:
+        return Colors.green;
+      case 3:
+        return Colors.red;
+      case 4:
+        return Colors.purple;
+      case 5:
+        return Colors.brown;
+      case 6:
+        return Colors.teal;
+      case 7:
+        return Colors.black;
+      case 8:
+        return Colors.grey;
+      default:
+        return Colors.black;
+    }
+  }
+
+  @override
+  void onRemove() {
+    super.onRemove();
+    _stopPingTimer();
+    connectionTimeoutTimer?.stop();
+    udpSocket?.close();
+  }
+}
+
+class Cell {
+  final int x, y;
+  bool isBomb;
+  bool isRevealed;
+  int adjacentBombs;
+
+  Cell(this.x, this.y, this.isBomb, this.isRevealed, this.adjacentBombs);
+
+  factory Cell.fromJson(Map<String, dynamic> json) {
+    return Cell(
+      json['x'],
+      json['y'],
+      json['isBomb'],
+      json['isRevealed'],
+      json['adjacentBombs'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'x': x,
+    'y': y,
+    'isBomb': isBomb,
+    'isRevealed': isRevealed,
+    'adjacentBombs': adjacentBombs,
+  };
+}
+
