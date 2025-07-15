@@ -3,6 +3,9 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
+import 'package:minesweeper_duo/components/cell.dart';
+
+
 class Minesweeper extends FlameGame with TapDetector {
   // Game constants
   static const int gridSize = 10;
@@ -247,14 +250,4 @@ class Minesweeper extends FlameGame with TapDetector {
 
   @override
   Color backgroundColor() => const Color(0x00000000);
-}
-
-class Cell {
-  final int x;
-  final int y;
-  bool isBomb;
-  bool isRevealed;
-  int adjacentBombs;
-
-  Cell(this.x, this.y, this.isBomb, this.isRevealed, this.adjacentBombs);
 }

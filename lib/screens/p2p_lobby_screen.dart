@@ -5,9 +5,10 @@ import 'dart:io';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:minesweeper_duo/minesweeper.dart';
-import 'package:network_info_plus/network_info_plus.dart';
+// import 'package:network_info_plus/network_info_plus.dart';
 import 'package:udp/udp.dart';
 import '../duo_udp_ms.dart';
+import 'package:minesweeper_duo/utils/get_local_ip.dart';
 
 class P2PLobbyScreen extends StatefulWidget {
   const P2PLobbyScreen({super.key});
@@ -25,14 +26,14 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
   @override
   void initState() {
     super.initState();
-    _getLocalIp();
+    _initState();
   }
 
-  Future<void> _getLocalIp() async {
-    final info = NetworkInfo();
-    final ip = await info.getWifiIP();
+  Future<void> _initState() async {
+    final ip = await getLocalIp();
     setState(() => localIp = ip);
   }
+
 
   @override
   Widget build(BuildContext context) {
