@@ -26,7 +26,7 @@ class Minesweeper extends FlameGame with TapDetector {
     // Create empty grid
     grid = List.generate(
       gridSize,
-      (x) => List.generate(gridSize, (y) => Cell(x, y, false, false, 0)),
+      (x) => List.generate(gridSize, (y) => Cell(x, y)),
     );
 
     // Place bombs randomly

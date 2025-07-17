@@ -8,6 +8,7 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
 import 'package:flutter/material.dart';
+import 'package:minesweeper_duo/components/board_controller.dart';
 import 'package:minesweeper_duo/components/cell.dart';
 import 'package:minesweeper_duo/components/events.dart';
 import 'package:udp/udp.dart';
@@ -55,7 +56,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   static const int gridSize = 10;
   static const int bombCount = 15;
   static const double cellSize = 40.0;
-  late List<List<Cell>> grid;
+  late BoardController boardController;
 
   // UI elements
   late TextBoxComponent statusText;
@@ -70,7 +71,9 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   @override
   Future<void> onLoad() async {
     super.onLoad();
-    initializeGrid();
+    
+    boardController = BoardController(gridSize, gridSize, bombCount);
+    // initializeGrid(); //ya al crear el board controller inicializa el grid automaticamente
 
     // Setup UI components
     statusText = TextBoxComponent(
@@ -150,7 +153,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   void _drawGrid(Canvas canvas) {
     for (var x = 0; x < gridSize; x++) {
       for (var y = 0; y < gridSize; y++) {
-        final cell = grid[x][y];
+        final cell = boardController.board[x][y];
         final rect = Rect.fromLTWH(
           x * cellSize,
           y * cellSize + 50, // Offset for status bar
@@ -299,7 +302,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
         connectionTimeoutTimer?.stop();
 
         // Start the game
-        _sendEvent(Event.fromStart(grid, 1, currentPlayer));
+        _sendEvent(Event.fromStart(boardController.board, 1, currentPlayer));
 
         // Start ping timer
         _startPingTimer();
@@ -323,6 +326,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   }
 
   void _handleNetworkEvents(Event event) {
+    var grid = boardController.board;
     switch (event.type) {
       case EventType.start:
         grid =
@@ -426,38 +430,6 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
     connectionTimeoutTimer?.stop();
   }
 
-  void initializeGrid() {
-    grid = List.generate(
-      gridSize,
-      (x) => List.generate(gridSize, (y) => Cell(x, y, false, false, 0)),
-    );
-
-    // Place bombs randomly
-    var bombsPlaced = 0;
-    final random = Random();
-    while (bombsPlaced < bombCount) {
-      final x = random.nextInt(gridSize);
-      final y = random.nextInt(gridSize);
-
-      if (!grid[x][y].isBomb) {
-        grid[x][y].isBomb = true;
-        bombsPlaced++;
-
-        // Update adjacent cells' bomb counts
-        for (var dx = -1; dx <= 1; dx++) {
-          for (var dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue;
-            final nx = x + dx;
-            final ny = y + dy;
-            if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
-              grid[nx][ny].adjacentBombs++;
-            }
-          }
-        }
-      }
-    }
-  }
-
   @override
   void onTapDown(TapDownInfo info) {
     if (!gameOver) {
@@ -471,7 +443,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
           x < gridSize &&
           y >= 0 &&
           y < gridSize &&
-          !grid[x][y].isRevealed) {
+          !boardController.board[x][y].isRevealed) {
         _handleCellReveal(x, y);
       }
     } else {
@@ -481,6 +453,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   }
 
   void _handleCellReveal(int x, int y) {
+    var grid = boardController.board;
     grid[x][y].isRevealed = true;
 
     // Switch turns
@@ -500,7 +473,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
 
   void _checkWinCondition() {
     var unrevealedSafeCells = 0;
-    for (var row in grid) {
+    for (var row in boardController.board) {
       for (var cell in row) {
         if (!cell.isBomb && !cell.isRevealed) {
           unrevealedSafeCells++;
