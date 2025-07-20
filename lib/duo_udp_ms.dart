@@ -71,9 +71,8 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   @override
   Future<void> onLoad() async {
     super.onLoad();
-    
+
     boardController = BoardController(gridSize, gridSize, bombCount);
-    // initializeGrid(); //ya al crear el board controller inicializa el grid automaticamente
 
     // Setup UI components
     statusText = TextBoxComponent(
@@ -326,10 +325,9 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
   }
 
   void _handleNetworkEvents(Event event) {
-    var grid = boardController.board;
     switch (event.type) {
       case EventType.start:
-        grid =
+        boardController.board =
             (event.data['grid'] as List)
                 .map<List<Cell>>(
                   (row) =>
@@ -343,14 +341,16 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
         break;
 
       case EventType.gameUpdate:
-        grid[event.data['x']][event.data['y']].isRevealed = true;
+        final x = event.data['x'];
+        final y = event.data['y'];
+        boardController.revealCell(x, y);
         currentPlayer = event.data['currentPlayer'];
         break;
 
       case EventType.revealCell:
         final x = event.data['x'];
         final y = event.data['y'];
-        grid[x][y].isRevealed = true;
+        boardController.revealCell(x, y);
         currentPlayer = (currentPlayer + 1) % 2;
         _sendEvent(Event.fromGameUpdate(x, y, currentPlayer));
         break;
@@ -454,7 +454,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
 
   void _handleCellReveal(int x, int y) {
     var grid = boardController.board;
-    grid[x][y].isRevealed = true;
+    boardController.revealCell(x, y);
 
     // Switch turns
     currentPlayer = (currentPlayer + 1) % 2;
