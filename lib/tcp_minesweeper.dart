@@ -52,7 +52,7 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
   Timer? connectionTimeoutTimer;
   DateTime? lastPongReceived;
   static const Duration pingInterval = Duration(seconds: 5);
-  static const Duration connectionTimeout = Duration(seconds: 25);
+  static const Duration connectionTimeout = Duration(seconds: 30);
   StreamSubscription? socketSubscription;
 
   // Game settings
@@ -103,13 +103,13 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
       ),
     );
 
+    add(statusText);
+
     if (isHost) {
       await _startTCPServer();
     } else {
       await _connectToHost();
     }
-
-    add(statusText);
   }
 
   @override
@@ -324,10 +324,14 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
 
   Future<void> _startTCPServer() async {
     try {
-      debugPrint("!!!! Binding to ${localIp!}:${port!}");
-      serverSocket = await ServerSocket.bind(localIp!, port!);
+      debugPrint("!!!! Binding to ${localIp!.address}:${port!}");
+      serverSocket = await ServerSocket.bind(InternetAddress.anyIPv4, port!);
 
-      connectionStatus = 'Waiting for player on port ${serverSocket!.port}';
+      debugPrint(
+        "!!!! Binded to ${serverSocket!.address.address}:${serverSocket!.port}",
+      );
+      connectionStatus =
+          'Waiting for player on ${serverSocket!.address.address}:${serverSocket!.port}';
 
       // Listen for incoming connections
       serverSocket!.listen((Socket socket) {
@@ -381,7 +385,7 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
       gameSocket = await Socket.connect(
         localIp!,
         port!,
-        timeout: connectionTimeout,
+        timeout: Duration(seconds: 15),
       );
 
       isConnected = true;
@@ -401,6 +405,10 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
       // Start ping timer
       _startPingTimer();
     } catch (e, stackTrace) {
+      debugPrint("!!!! Error Connecting to ${localIp!}:${port!}");
+      if (gameSocket != null) {
+        debugPrint("!!!! Error Connecting to ${localIp!}:${gameSocket!.port}");
+      }
       dev.log("Connection failed: ${e}", error: e, stackTrace: stackTrace);
       debugPrint("Connection failed: ${e}");
       connectionStatus = 'Connection failed: $e';

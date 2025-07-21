@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:minesweeper_duo/minesweeper.dart';
+import 'package:permission_handler/permission_handler.dart';
 // import 'package:flutter/gestures.dart';
 // import 'package:network_info_plus/network_info_plus.dart';
 // import 'package:udp/udp.dart';
@@ -35,6 +36,7 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
   @override
   void initState() {
     super.initState();
+    // compulsoryPermission();
     _initState();
   }
 
@@ -284,7 +286,7 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                   onPressed: () {
                     final gameInstance = MinesweeperGame(
                       isHost: false,
-                      localIp: InternetAddress.tryParse(localIp!),
+                      localIp: InternetAddress.tryParse(ipController.text!),
                       port: int.parse(portController.text),
                       // port: Port(
                       //   int.parse(
@@ -393,5 +395,48 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
         ),
       ),
     );
+  }
+
+  compulsoryPermission() async {
+    // final permissions = [
+    //   Permission.locationWhenInUse,
+    //   Permission.nearbyWifiDevices,
+    // ];
+    // var granted = List<bool>.empty(growable: true);
+    // for (var permission in permissions) {
+    PermissionStatus firstPermission =
+        await Permission.nearbyWifiDevices.request();
+    if (firstPermission.isGranted) {
+      return;
+    } else if (firstPermission.isPermanentlyDenied ||
+        firstPermission.isDenied) {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            return WillPopScope(
+              onWillPop: () async {
+                return true;
+              },
+              child: AlertDialog(
+                actions: [
+                  OutlinedButton(
+                    onPressed: () async {
+                      await openAppSettings();
+                    },
+                    child: const Text("Open Settings"),
+                  ),
+                ],
+                title: const Text(
+                  "Required Permission for Nearby Wifi Devices",
+                ),
+              ),
+            );
+          },
+        );
+      }
+    }
+    // }
   }
 }
