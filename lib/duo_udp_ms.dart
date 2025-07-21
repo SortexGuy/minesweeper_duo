@@ -28,7 +28,7 @@ extension ConnectionStatusExtension on ConnectionStatus {
   }
 }
 
-class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
+class MinesweeperGame extends FlameGame with HoverCallbacks {
   final bool isHost;
   final InternetAddress? localIp;
   final Port? port;
@@ -149,22 +149,22 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
     }
   }
 
+  // Dentro de void _drawGrid(Canvas canvas)
   void _drawGrid(Canvas canvas) {
     for (var x = 0; x < gridSize; x++) {
       for (var y = 0; y < gridSize; y++) {
         final cell = boardController.board[x][y];
         final rect = Rect.fromLTWH(
           x * cellSize,
-          y * cellSize + 50, // Offset for status bar
+          y * cellSize + 50, // Offset para la barra de estado
           cellSize,
           cellSize,
         );
 
         // Draw cell background
-        final paint =
-            Paint()
-              ..color = cell.isRevealed ? Colors.white : Colors.grey
-              ..style = PaintingStyle.fill;
+        final paint = Paint()
+          ..color = cell.isRevealed ? Colors.white : Colors.grey
+          ..style = PaintingStyle.fill;
         canvas.drawRect(rect, paint);
 
         // Draw border
@@ -176,10 +176,10 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
             ..strokeWidth = 1,
         );
 
-        // Draw content
+        // Dibujar contenido
         if (cell.isRevealed) {
           if (cell.isBomb) {
-            // Draw bomb
+            // Dibujar bomba
             canvas.drawCircle(
               Offset(
                 x * cellSize + cellSize / 2,
@@ -189,7 +189,7 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
               Paint()..color = Colors.black,
             );
           } else if (cell.adjacentBombs > 0) {
-            // Draw number
+            // Dibujar número
             final textPainter = TextPainter(
               text: TextSpan(
                 text: cell.adjacentBombs.toString(),
@@ -208,6 +208,33 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
               ),
             );
           }
+        } else if (cell.isFlagged) { // <-- Si la celda no está revelada PERO está marcada
+          // Dibujar una bandera (puedes usar un triángulo o un icono más elaborado)
+          final flagPaint = Paint()..color = Colors.red;
+          final path = Path();
+          path.moveTo(x * cellSize + cellSize * 0.25, y * cellSize + 50 + cellSize * 0.75); // Base izquierda
+          path.lineTo(x * cellSize + cellSize * 0.75, y * cellSize + 50 + cellSize * 0.75); // Base derecha
+          path.lineTo(x * cellSize + cellSize * 0.5, y * cellSize + 50 + cellSize * 0.25); // Punta superior
+          path.close();
+          canvas.drawPath(path, flagPaint);
+
+          // O una forma más simple, un "F" de "Flag"
+          final flagTextPainter = TextPainter(
+            text: const TextSpan(
+              text: '🚩', // Un emoji de bandera es simple y efectivo
+              style: TextStyle(
+                fontSize: cellSize * 0.7, // Ajusta el tamaño
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          )..layout();
+          flagTextPainter.paint(
+            canvas,
+            Offset(
+              x * cellSize + cellSize / 2 - flagTextPainter.width / 2,
+              y * cellSize + 50 + cellSize / 2 - flagTextPainter.height / 2,
+            ),
+          );
         }
       }
     }
@@ -430,26 +457,56 @@ class MinesweeperGame extends FlameGame with TapDetector, HoverCallbacks {
     connectionTimeoutTimer?.stop();
   }
 
-  @override
-  void onTapDown(TapDownInfo info) {
-    if (!gameOver) {
-      if (playerIndex == null || currentPlayer != playerIndex) return;
-
-      final position = info.eventPosition.widget;
-      final x = (position.x / cellSize).floor();
-      final y = ((position.y - 50) / cellSize).floor(); // Adjust for status bar
-
-      if (x >= 0 &&
-          x < gridSize &&
-          y >= 0 &&
-          y < gridSize &&
-          !boardController.board[x][y].isRevealed) {
-        _handleCellReveal(x, y);
-      }
-    } else {
-      var context = buildContext!;
-      Navigator.pop(context);
+  void handleTap(Offset position) {
+    if (gameOver) {
+      return;
     }
+
+    if (playerIndex == null || currentPlayer != playerIndex) return;
+
+    final x = (position.dx / cellSize).floor();
+    final y = ((position.dy - 50) / cellSize).floor(); // Ajuste para la barra de estado
+
+    if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) return;
+
+    final cell = boardController.board[x][y];
+
+    if (cell.isRevealed || cell.isFlagged) {
+      // No hacer nada si la celda ya está revelada o si tiene una bandera
+      return;
+    }
+
+    _handleCellReveal(x, y); // Revelar la celda
+  }
+
+  // Método para manejar el toque largo (móvil) o clic derecho (PC) para la bandera
+  void handleFlagAction(Offset position) {
+    if (gameOver) return;
+    if (playerIndex == null || currentPlayer != playerIndex) return;
+
+    final x = (position.dx / cellSize).floor();
+    final y = ((position.dy - 50) / cellSize).floor(); // Ajuste para la barra de estado
+
+    if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) return;
+
+    final cell = boardController.board[x][y];
+
+    if (cell.isRevealed) {
+      // No puedes poner banderas en celdas reveladas
+      return;
+    }
+
+    // Alternar el estado de la bandera
+    _handleCellFlag(x, y, !cell.isFlagged);
+  }
+
+  void _handleCellFlag(int x, int y, bool flagStatus) {
+    var cell = boardController.board[x][y];
+    if (cell.isRevealed) {
+      return; // No se pueden marcar/desmarcar celdas reveladas
+    }
+
+    cell.isFlagged = flagStatus; // Actualiza el estado de la bandera
   }
 
   void _handleCellReveal(int x, int y) {

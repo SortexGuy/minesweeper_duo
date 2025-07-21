@@ -4,6 +4,7 @@ class Cell {
   bool isBomb = false;
   bool isRevealed = false;
   int adjacentBombs = 0;
+  bool isFlagged = false;
 
   Cell(this.x, this.y);
 
@@ -18,6 +19,7 @@ class Cell {
     cell.isBomb = json['isBomb'];
     cell.isRevealed = json['isRevealed'];
     cell.adjacentBombs = json['adjacentBombs'];
+    cell.isFlagged = json['isFlagged'];
     return cell;
   }
 
@@ -27,5 +29,6 @@ class Cell {
     'isBomb': isBomb,
     'isRevealed': isRevealed,
     'adjacentBombs': adjacentBombs,
+    'isFlagged': isFlagged
   };
 }

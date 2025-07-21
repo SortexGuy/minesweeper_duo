@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:minesweeper_duo/minesweeper.dart';
+import 'package:flutter/gestures.dart';
 // import 'package:network_info_plus/network_info_plus.dart';
 import 'package:udp/udp.dart';
 import '../duo_udp_ms.dart';
@@ -83,23 +84,47 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                     ),
                     ElevatedButton(
                       onPressed: () {
+                        final gameInstance = MinesweeperGame( // Crea una instancia del juego
+                          isHost: true,
+                          localIp: InternetAddress.tryParse(localIp!),
+                          port: Port(
+                            int.parse(
+                              portController.text.isNotEmpty ? portController.text : '3000',
+                            ),
+                          ),
+                        );
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder:
-                                (context) => GameWidget(
-                                  game: MinesweeperGame(
-                                    isHost: true,
-                                    localIp: InternetAddress.tryParse(localIp!),
-                                    port: Port(
-                                      int.parse(
-                                        portController.text.isNotEmpty
-                                            ? portController.text
-                                            : '3000',
-                                      ),
+                            builder: (context) => Scaffold( // Necesitas un Scaffold para el AppBar si quieres el botón de atrás
+                              appBar: AppBar(title: const Text('Minesweeper Game')),
+                              body: Center(
+                                child: Container(
+                                  // Establece el tamaño del contenedor del juego. Ajusta según tus necesidades.
+                                  width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
+                                  height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50, // +50 para el status bar
+                                  color: Colors.black12, // Fondo visible para el área de juego
+                                  child: GestureDetector( // <-- ENVOLVEMOS EL GAMEWIDGET CON GESTUREDETECTOR
+                                    onTapDown: (TapDownDetails details) {
+                                      // Pasa las coordenadas locales a tu juego
+                                      gameInstance.handleTap(details.localPosition);
+                                    },
+                                    onLongPressStart: (LongPressStartDetails details) {
+                                      gameInstance.handleFlagAction(details.localPosition);
+                                    },
+                                    onSecondaryTapDown: (TapDownDetails details) {
+                                      // Clic derecho para PC
+                                      gameInstance.handleFlagAction(details.localPosition);
+                                    },
+                                    child: GameWidget(
+                                      game: gameInstance, // Pasa la instancia del juego
+                                      mouseCursor: SystemMouseCursors.basic, // Para mostrar el cursor del ratón en PC
                                     ),
                                   ),
                                 ),
+                              ),
+                            ),
                           ),
                         );
                       },
@@ -137,23 +162,44 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                     ),
                     ElevatedButton(
                       onPressed: () {
+                        final gameInstance = MinesweeperGame( // Crea una instancia del juego
+                          isHost: false,
+                          localIp: InternetAddress.tryParse(localIp!),
+                          port: Port(
+                            int.parse(
+                              portController.text.isNotEmpty ? portController.text : '3000',
+                            ),
+                          ),
+                        );
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder:
-                                (context) => GameWidget(
-                                  game: MinesweeperGame(
-                                    isHost: false,
-                                    localIp: InternetAddress.tryParse(localIp!),
-                                    port: Port(
-                                      int.parse(
-                                        portController.text.isNotEmpty
-                                            ? portController.text
-                                            : '3000',
-                                      ),
+                            builder: (context) => Scaffold(
+                              appBar: AppBar(title: const Text('Minesweeper Game')),
+                              body: Center(
+                                child: Container(
+                                  width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
+                                  height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50,
+                                  color: Colors.black12,
+                                  child: GestureDetector(
+                                    onTapDown: (TapDownDetails details) {
+                                      gameInstance.handleTap(details.localPosition);
+                                    },
+                                    onLongPressStart: (LongPressStartDetails details) {
+                                      gameInstance.handleFlagAction(details.localPosition);
+                                    },
+                                    onSecondaryTapDown: (TapDownDetails details) {
+                                      gameInstance.handleFlagAction(details.localPosition);
+                                    },
+                                    child: GameWidget(
+                                      game: gameInstance,
+                                      mouseCursor: SystemMouseCursors.basic,
                                     ),
                                   ),
                                 ),
+                              ),
+                            ),
                           ),
                         );
                       },
