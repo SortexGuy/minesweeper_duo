@@ -24,6 +24,15 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
   final gameIdController = TextEditingController();
   String? localIp;
 
+    // Define retro-style colors
+  static const Color retroGreen = Color(0xFF6B8E23); // Olive Green
+  static const Color retroDarkGreen = Color(0xFF35441C); // Darker Green
+  static const Color retroBrown = Color(0xFF8B4513); // Saddle Brown
+  static const Color retroLightGray = Color(0xFFD3D3D3); // Light Gray
+  static const Color retroDarkGray = Color(0xFF36454F); // Charcoal Gray
+  static const Color retroBlue = Color(0xFF00008B); // Dark Blue
+
+
   @override
   void initState() {
     super.initState();
@@ -35,180 +44,269 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
     setState(() => localIp = ip);
   }
 
+    TextStyle _retroTextStyle({double fontSize = 20, Color color = Colors.white}) {
+    return TextStyle(
+      fontFamily: 'PixelFont', 
+      fontSize: fontSize,
+      color: color,
+      shadows: const [
+        Shadow(
+          offset: Offset(2.0, 2.0),
+          blurRadius: 3.0,
+          color: Colors.black54,
+        ),
+      ],
+    );
+  }
+
+    ButtonStyle _retroButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: retroGreen, // Green button background
+      foregroundColor: Colors.white, // White text
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0), // Slightly rounded corners
+        side: const BorderSide(color: retroDarkGreen, width: 3.0), // Darker border
+      ),
+      textStyle: _retroTextStyle(fontSize: 18),
+      elevation: 5, 
+    );
+  }
+
+    InputDecoration _retroInputDecoration(String labelText, String hintText) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      labelStyle: _retroTextStyle(fontSize: 16, color: retroLightGray),
+      hintStyle: _retroTextStyle(fontSize: 16, color: retroLightGray.withOpacity(0.7)),
+      filled: true,
+      fillColor: retroDarkGray.withOpacity(0.7), // Semi-transparent dark gray fill
+      enabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: retroGreen, width: 2.0),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: Colors.cyanAccent, width: 3.0), // Brighter focus
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Local Minesweeper')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: retroDarkGreen, // Darker green background for the entire screen
+      appBar: AppBar(
+        title: Text(
+          'MINESWEEPER DUO',
+          style: _retroTextStyle(fontSize: 24, color: Colors.cyanAccent), // Brighter title
+        ),
+        centerTitle: true,
+        backgroundColor: retroBrown, // Brown app bar for a distinct header
+        elevation: 10,
+      ),
+      body: SingleChildScrollView( // Allow scrolling if content is too long
+        padding: const EdgeInsets.all(24.0), // More padding
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch cards horizontally
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text('Local Game', style: TextStyle(fontSize: 20)),
-                    ElevatedButton(
-                      onPressed: () {
-                        final game = Minesweeper();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => GameWidget(game: game),
-                          ),
-                        );
-                      },
-                      child: const Text('Play locally'),
-                    ),
-                  ],
+            // Local Game Card
+            _buildRetroCard(
+              title: 'LOCAL GAME',
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    final game = Minesweeper(); // Assuming Minesweeper is your local game class
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GameWidget(game: game),
+                      ),
+                    );
+                  },
+                  style: _retroButtonStyle(),
+                  child: const Text('PLAY LOCALLY'),
                 ),
-              ),
+              ],
+            ),
+            const SizedBox(height: 24), // Increased spacing
+
+            // Host Game Card
+            _buildRetroCard(
+              title: 'HOST GAME',
+              children: [
+                if (localIp != null)
+                  Text(
+                    'YOUR IP: $localIp',
+                    style: _retroTextStyle(fontSize: 16, color: retroLightGray),
+                    textAlign: TextAlign.center,
+                  ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: portController,
+                  keyboardType: TextInputType.number,
+                  style: _retroTextStyle(fontSize: 16), // Apply retro text style to input
+                  decoration: _retroInputDecoration('HOSTING PORT', '3000'),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    final gameInstance = MinesweeperGame(
+                      isHost: true,
+                      localIp: InternetAddress.tryParse(localIp!),
+                      port: Port(
+                        int.parse(
+                          portController.text.isNotEmpty ? portController.text : '3000',
+                        ),
+                      ),
+                    );
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Scaffold(
+                          appBar: AppBar(
+                            title: Text('MINESWEEPER GAME', style: _retroTextStyle(fontSize: 20, color: Colors.white)),
+                            backgroundColor: retroBrown,
+                          ),
+                          body: Center(
+                            child: Container(
+                              width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
+                              height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50,
+                              color: retroDarkGreen, // Retro background for game area
+                              child: GestureDetector(
+                                onTapDown: (TapDownDetails details) {
+                                  gameInstance.handleTap(details.localPosition);
+                                },
+                                onLongPressStart: (LongPressStartDetails details) {
+                                  gameInstance.handleFlagAction(details.localPosition);
+                                },
+                                onSecondaryTapDown: (TapDownDetails details) {
+                                  gameInstance.handleFlagAction(details.localPosition);
+                                },
+                                child: GameWidget(
+                                  game: gameInstance,
+                                  mouseCursor: SystemMouseCursors.basic,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  style: _retroButtonStyle(),
+                  child: const Text('START AS HOST'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Join Game Card
+            _buildRetroCard(
+              title: 'JOIN GAME',
+              children: [
+                TextField(
+                  controller: ipController,
+                  keyboardType: TextInputType.text,
+                  style: _retroTextStyle(fontSize: 16),
+                  decoration: _retroInputDecoration('HOST IP ADDRESS', '192.168.1.100'),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: portController,
+                  keyboardType: TextInputType.number,
+                  style: _retroTextStyle(fontSize: 16),
+                  decoration: _retroInputDecoration('HOSTING PORT', '3000'),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: gameIdController,
+                  keyboardType: TextInputType.text,
+                  style: _retroTextStyle(fontSize: 16),
+                  decoration: _retroInputDecoration('GAME ID (IF REQUIRED)', ''),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    final gameInstance = MinesweeperGame(
+                      isHost: false,
+                      localIp: InternetAddress.tryParse(localIp!) ?? InternetAddress.loopbackIPv4, // Use entered IP
+                      port: Port(
+                        int.parse(
+                          portController.text.isNotEmpty ? portController.text : '3000',
+                        ),
+                      ),
+                    );
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Scaffold(
+                          appBar: AppBar(
+                            title: Text('MINESWEEPER GAME', style: _retroTextStyle(fontSize: 20, color: Colors.white)),
+                            backgroundColor: retroBrown,
+                          ),
+                          body: Center(
+                            child: Container(
+                              width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
+                              height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50,
+                              color: retroDarkGreen,
+                              child: GestureDetector(
+                                onTapDown: (TapDownDetails details) {
+                                  gameInstance.handleTap(details.localPosition);
+                                },
+                                onLongPressStart: (LongPressStartDetails details) {
+                                  gameInstance.handleFlagAction(details.localPosition);
+                                },
+                                onSecondaryTapDown: (TapDownDetails details) {
+                                  gameInstance.handleFlagAction(details.localPosition);
+                                },
+                                child: GameWidget(
+                                  game: gameInstance,
+                                  mouseCursor: SystemMouseCursors.basic,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  style: _retroButtonStyle(),
+                  child: const Text('JOIN GAME'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper widget to build consistent retro cards
+  Widget _buildRetroCard({required String title, required List<Widget> children}) {
+    return Card(
+      elevation: 8,
+      color: retroDarkGray, // Dark gray background for cards
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12.0),
+        side: const BorderSide(color: retroGreen, width: 3.0), // Green border for cards
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0), // Increased padding
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: _retroTextStyle(fontSize: 22, color: Colors.cyanAccent), // Brighter titles
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text('Host Game', style: TextStyle(fontSize: 20)),
-                    if (localIp != null) Text('Your IP: $localIp'),
-                    TextField(
-                      controller: portController,
-                      decoration: const InputDecoration(
-                        labelText: 'Hosting port',
-                        hintText: '3000',
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        final gameInstance = MinesweeperGame( // Crea una instancia del juego
-                          isHost: true,
-                          localIp: InternetAddress.tryParse(localIp!),
-                          port: Port(
-                            int.parse(
-                              portController.text.isNotEmpty ? portController.text : '3000',
-                            ),
-                          ),
-                        );
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => Scaffold( // Necesitas un Scaffold para el AppBar si quieres el botón de atrás
-                              appBar: AppBar(title: const Text('Minesweeper Game')),
-                              body: Center(
-                                child: Container(
-                                  // Establece el tamaño del contenedor del juego. Ajusta según tus necesidades.
-                                  width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
-                                  height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50, // +50 para el status bar
-                                  color: Colors.black12, // Fondo visible para el área de juego
-                                  child: GestureDetector( // <-- ENVOLVEMOS EL GAMEWIDGET CON GESTUREDETECTOR
-                                    onTapDown: (TapDownDetails details) {
-                                      // Pasa las coordenadas locales a tu juego
-                                      gameInstance.handleTap(details.localPosition);
-                                    },
-                                    onLongPressStart: (LongPressStartDetails details) {
-                                      gameInstance.handleFlagAction(details.localPosition);
-                                    },
-                                    onSecondaryTapDown: (TapDownDetails details) {
-                                      // Clic derecho para PC
-                                      gameInstance.handleFlagAction(details.localPosition);
-                                    },
-                                    child: GameWidget(
-                                      game: gameInstance, // Pasa la instancia del juego
-                                      mouseCursor: SystemMouseCursors.basic, // Para mostrar el cursor del ratón en PC
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text('Start as Host'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text('Join Game', style: TextStyle(fontSize: 20)),
-                    TextField(
-                      controller: ipController,
-                      decoration: const InputDecoration(
-                        labelText: 'Host IP Address',
-                      ),
-                    ),
-                    TextField(
-                      controller: portController,
-                      decoration: const InputDecoration(
-                        labelText: 'Hosting port',
-                        hintText: '3000',
-                      ),
-                    ),
-                    TextField(
-                      controller: gameIdController,
-                      decoration: const InputDecoration(
-                        labelText: 'Game ID (if required)',
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        final gameInstance = MinesweeperGame( // Crea una instancia del juego
-                          isHost: false,
-                          localIp: InternetAddress.tryParse(localIp!),
-                          port: Port(
-                            int.parse(
-                              portController.text.isNotEmpty ? portController.text : '3000',
-                            ),
-                          ),
-                        );
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => Scaffold(
-                              appBar: AppBar(title: const Text('Minesweeper Game')),
-                              body: Center(
-                                child: Container(
-                                  width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
-                                  height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50,
-                                  color: Colors.black12,
-                                  child: GestureDetector(
-                                    onTapDown: (TapDownDetails details) {
-                                      gameInstance.handleTap(details.localPosition);
-                                    },
-                                    onLongPressStart: (LongPressStartDetails details) {
-                                      gameInstance.handleFlagAction(details.localPosition);
-                                    },
-                                    onSecondaryTapDown: (TapDownDetails details) {
-                                      gameInstance.handleFlagAction(details.localPosition);
-                                    },
-                                    child: GameWidget(
-                                      game: gameInstance,
-                                      mouseCursor: SystemMouseCursors.basic,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text('Join Game'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            ...children, // Spread the children widgets
           ],
         ),
       ),

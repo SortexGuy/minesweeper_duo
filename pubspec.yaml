@@ -33,3 +33,11 @@ flutter:
   #       - asset: fonts/TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
+  uses-material-design: true
+  assets:
+    - assets/images/bomb.png  
+    - assets/images/flag.png  
+  fonts:
+    - family: PixelFont 
+      fonts:
+        - asset: assets/fonts/PixelFont.ttf 

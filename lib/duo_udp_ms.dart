@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flame/sprite.dart'; 
 import 'package:flame/input.dart';
 import 'package:flutter/material.dart';
 import 'package:minesweeper_duo/components/board_controller.dart';
@@ -32,6 +33,10 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
   final bool isHost;
   final InternetAddress? localIp;
   final Port? port;
+
+  // Assets
+  late Sprite bombSprite;
+  late Sprite flagSprite;
 
   UDP? udpSocket;
   InternetAddress? remoteAddress;
@@ -62,6 +67,15 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
   late TextBoxComponent statusText;
   late TextBoxComponent ipDisplay;
 
+  // Paleta de colores para las celdas
+  static const Color _unrevealedCellColor = Color(0xFFC0C0C0); // Gris claro
+  static const Color _revealedCellColor = Color(0xFFE0E0E0);   // Gris muy claro, casi blanco
+  static const Color _lightEdgeColor = Color(0xFFFFFFFF);     // Blanco para luces
+  static const Color _darkEdgeColor = Color(0xFF808080);      // Gris oscuro para sombras
+  static const double _borderWidth = 3.0; // Ancho del borde de sombreado
+
+
+
   MinesweeperGame({
     required this.isHost,
     required this.localIp,
@@ -73,6 +87,9 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
     super.onLoad();
 
     boardController = BoardController(gridSize, gridSize, bombCount);
+
+    bombSprite = await loadSprite('bomb.png');
+    flagSprite = await loadSprite('flag.png');
 
     // Setup UI components
     statusText = TextBoxComponent(
@@ -127,7 +144,7 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
 
     // Draw game over message
     if (gameOver) {
-      final text = gameWon ? 'You Won!' : 'Game Over!';
+      final text = gameWon ? 'You Win!' : 'Game Over!';
       final textPainter = TextPainter(
         text: TextSpan(
           text: text,
@@ -150,95 +167,124 @@ class MinesweeperGame extends FlameGame with HoverCallbacks {
   }
 
   // Dentro de void _drawGrid(Canvas canvas)
-  void _drawGrid(Canvas canvas) {
-    for (var x = 0; x < gridSize; x++) {
-      for (var y = 0; y < gridSize; y++) {
-        final cell = boardController.board[x][y];
-        final rect = Rect.fromLTWH(
-          x * cellSize,
-          y * cellSize + 50, // Offset para la barra de estado
-          cellSize,
-          cellSize,
-        );
+void _drawGrid(Canvas canvas) {
+  for (var x = 0; x < gridSize; x++) {
+    for (var y = 0; y < gridSize; y++) {
+      final cell = boardController.board[x][y];
+      final rect = Rect.fromLTWH(
+        x * cellSize,
+        y * cellSize + 50, // Offset para la barra de estado superior
+        cellSize,
+        cellSize,
+      );
 
-        // Draw cell background
-        final paint = Paint()
-          ..color = cell.isRevealed ? Colors.white : Colors.grey
-          ..style = PaintingStyle.fill;
-        canvas.drawRect(rect, paint);
+      // --- 2.1. Dibujar el fondo de la celda ---
+      final cellPaint = Paint();
+      if (cell.isRevealed) {
+        cellPaint.color = _revealedCellColor; // Fondo gris claro para celda revelada
+      } else {
+        cellPaint.color = _unrevealedCellColor; // Fondo gris para celda sin revelar
+      }
+      canvas.drawRect(rect, cellPaint);
 
-        // Draw border
+      // --- 2.2. Dibujar los bordes para el efecto 3D ---
+      if (cell.isRevealed) {
+        // Celdas reveladas: Borde "hundido"
+        // Bordes superiores e izquierdos más oscuros (sombra)
         canvas.drawRect(
-          rect,
-          Paint()
-            ..color = Colors.black
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
-        );
+          Rect.fromLTWH(rect.left, rect.top, rect.width, _borderWidth),
+          Paint()..color = _darkEdgeColor,
+        ); // Borde superior
+        canvas.drawRect(
+          Rect.fromLTWH(rect.left, rect.top, _borderWidth, rect.height),
+          Paint()..color = _darkEdgeColor,
+        ); // Borde izquierdo
 
-        // Dibujar contenido
-        if (cell.isRevealed) {
-          if (cell.isBomb) {
-            // Dibujar bomba
-            canvas.drawCircle(
-              Offset(
-                x * cellSize + cellSize / 2,
-                y * cellSize + 50 + cellSize / 2,
-              ),
-              cellSize / 3,
-              Paint()..color = Colors.black,
-            );
-          } else if (cell.adjacentBombs > 0) {
-            // Dibujar número
-            final textPainter = TextPainter(
-              text: TextSpan(
-                text: cell.adjacentBombs.toString(),
-                style: TextStyle(
-                  color: _getNumberColor(cell.adjacentBombs),
-                  fontSize: cellSize / 2,
-                ),
-              ),
-              textDirection: TextDirection.ltr,
-            )..layout();
-            textPainter.paint(
-              canvas,
-              Offset(
-                x * cellSize + cellSize / 2 - textPainter.width / 2,
-                y * cellSize + 50 + cellSize / 2 - textPainter.height / 2,
-              ),
-            );
-          }
-        } else if (cell.isFlagged) { // <-- Si la celda no está revelada PERO está marcada
-          // Dibujar una bandera (puedes usar un triángulo o un icono más elaborado)
-          final flagPaint = Paint()..color = Colors.red;
-          final path = Path();
-          path.moveTo(x * cellSize + cellSize * 0.25, y * cellSize + 50 + cellSize * 0.75); // Base izquierda
-          path.lineTo(x * cellSize + cellSize * 0.75, y * cellSize + 50 + cellSize * 0.75); // Base derecha
-          path.lineTo(x * cellSize + cellSize * 0.5, y * cellSize + 50 + cellSize * 0.25); // Punta superior
-          path.close();
-          canvas.drawPath(path, flagPaint);
+        // Bordes inferiores y derechos más claros (luz)
+        canvas.drawRect(
+          Rect.fromLTWH(rect.right - _borderWidth, rect.top, _borderWidth, rect.height),
+          Paint()..color = _lightEdgeColor,
+        ); // Borde derecho
+        canvas.drawRect(
+          Rect.fromLTWH(rect.left, rect.bottom - _borderWidth, rect.width, _borderWidth),
+          Paint()..color = _lightEdgeColor,
+        ); // Borde inferior
 
-          // O una forma más simple, un "F" de "Flag"
-          final flagTextPainter = TextPainter(
-            text: const TextSpan(
-              text: '🚩', // Un emoji de bandera es simple y efectivo
+      } else {
+        // Celdas sin revelar: Borde "elevado" (simula un botón)
+        // Bordes superiores e izquierdos más claros (luz)
+        canvas.drawRect(
+          Rect.fromLTWH(rect.left, rect.top, rect.width, _borderWidth),
+          Paint()..color = _lightEdgeColor,
+        ); // Borde superior
+        canvas.drawRect(
+          Rect.fromLTWH(rect.left, rect.top, _borderWidth, rect.height),
+          Paint()..color = _lightEdgeColor,
+        ); // Borde izquierdo
+
+        // Bordes inferiores y derechos más oscuros (sombra)
+        canvas.drawRect(
+          Rect.fromLTWH(rect.right - _borderWidth, rect.top, _borderWidth, rect.height),
+          Paint()..color = _darkEdgeColor,
+        ); // Borde derecho
+        canvas.drawRect(
+          Rect.fromLTWH(rect.left, rect.bottom - _borderWidth, rect.width, _borderWidth),
+          Paint()..color = _darkEdgeColor,
+        ); // Borde inferior
+      }
+
+      // --- 2.3. Dibujar el contenido de la celda (bomba, número, bandera) ---
+      if (cell.isRevealed) {
+        if (cell.isBomb) {
+          // Dibujar el sprite de la bomba
+          bombSprite.render(
+            canvas,
+            position: Vector2(
+              x * cellSize + cellSize / 2,         // Centro X de la celda
+              y * cellSize + 50 + cellSize / 2,   // Centro Y de la celda (con offset)
+            ),
+            size: Vector2.all(cellSize * 0.9),    // Tamaño del sprite (90% del tamaño de la celda)
+            anchor: Anchor.center,                // Dibuja el sprite centrado en su posición
+          );
+        } else if (cell.adjacentBombs > 0) {
+          // Dibujar el número de bombas adyacentes
+          final textPainter = TextPainter(
+            text: TextSpan(
+              text: cell.adjacentBombs.toString(),
               style: TextStyle(
-                fontSize: cellSize * 0.7, // Ajusta el tamaño
+                color: _getNumberColor(cell.adjacentBombs), // Usa tu función de color existente
+                fontSize: cellSize / 2,                     // Tamaño de la fuente (50% del tamaño de la celda)
+                fontWeight: FontWeight.bold,                // Números en negrita
               ),
             ),
-            textDirection: TextDirection.ltr,
-          )..layout();
-          flagTextPainter.paint(
+            textDirection: TextDirection.ltr, // Dirección del texto
+          )..layout(); // Calcular el layout del texto
+
+          // Dibujar el texto centrado en la celda
+          textPainter.paint(
             canvas,
             Offset(
-              x * cellSize + cellSize / 2 - flagTextPainter.width / 2,
-              y * cellSize + 50 + cellSize / 2 - flagTextPainter.height / 2,
+              x * cellSize + cellSize / 2 - textPainter.width / 2,       // Posición X para centrar
+              y * cellSize + 50 + cellSize / 2 - textPainter.height / 2, // Posición Y para centrar (con offset)
             ),
           );
         }
+      } else if (cell.isFlagged) {
+        // Si la celda no está revelada pero está marcada con una bandera
+        // Dibujar el sprite de la bandera
+        flagSprite.render(
+          canvas,
+          position: Vector2(
+            x * cellSize + cellSize / 2,         // Centro X de la celda
+            y * cellSize + 50 + cellSize / 2,   // Centro Y de la celda (con offset)
+          ),
+          size: Vector2.all(cellSize * 0.9),    // Tamaño del sprite
+          anchor: Anchor.center,                // Dibuja el sprite centrado en su posición
+        );
       }
     }
   }
+}
 
   Future<void> _startUDPServer() async {
     try {
