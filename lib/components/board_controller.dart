@@ -24,8 +24,8 @@ class BoardController {
     while (placed < mineCount) {
       int r = rand.nextInt(rows);
       int c = rand.nextInt(cols);
-      if (!board[r][c].isBomb) {
-        board[r][c].isBomb = true;
+      if (!board[c][r].isBomb) {
+        board[c][r].isBomb = true;
         placed++;
       }
     }
@@ -40,7 +40,7 @@ class BoardController {
           for (int dc = -1; dc <= 1; dc++) {
             int nr = cell.y + dr;
             int nc = cell.x + dc;
-            if (_isInBounds(nr, nc) && board[nr][nc].isBomb) {
+            if (_isInBounds(nr, nc) && board[nc][nr].isBomb) {
               count++;
             }
           }
