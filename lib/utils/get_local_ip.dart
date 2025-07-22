@@ -1,9 +1,6 @@
 import 'dart:io';
-// import 'package:network_info_plus/network_info_plus.dart';
 
 Future<String> getLocalIp() async {
-  // final info = NetworkInfo();
-  // final ip = await info.getWifiIP();
   var ip = '';
   final interfaces = await NetworkInterface.list(
     includeLoopback: false,
@@ -19,4 +16,3 @@ Future<String> getLocalIp() async {
   print("!!!!! Local IP: ${ip}");
   return ip;
 }
-

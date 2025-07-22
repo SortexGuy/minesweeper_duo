@@ -1,12 +1,8 @@
 // ignore_for_file: library_private_types_in_public_api
-
 import 'dart:io';
-
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:minesweeper_duo/minesweeper.dart';
-import 'package:flutter/gestures.dart';
-// import 'package:network_info_plus/network_info_plus.dart';
 import 'package:udp/udp.dart';
 import '../duo_udp_ms.dart';
 import 'package:minesweeper_duo/utils/get_local_ip.dart';
@@ -24,14 +20,13 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
   final gameIdController = TextEditingController();
   String? localIp;
 
-    // Define retro-style colors
+  // Define retro-style colors
   static const Color retroGreen = Color(0xFF6B8E23); // Olive Green
   static const Color retroDarkGreen = Color(0xFF35441C); // Darker Green
   static const Color retroBrown = Color(0xFF8B4513); // Saddle Brown
   static const Color retroLightGray = Color(0xFFD3D3D3); // Light Gray
   static const Color retroDarkGray = Color(0xFF36454F); // Charcoal Gray
   static const Color retroBlue = Color(0xFF00008B); // Dark Blue
-
 
   @override
   void initState() {
@@ -44,9 +39,12 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
     setState(() => localIp = ip);
   }
 
-    TextStyle _retroTextStyle({double fontSize = 20, Color color = Colors.white}) {
+  TextStyle _retroTextStyle({
+    double fontSize = 20,
+    Color color = Colors.white,
+  }) {
     return TextStyle(
-      fontFamily: 'PixelFont', 
+      fontFamily: 'PixelFont',
       fontSize: fontSize,
       color: color,
       shadows: const [
@@ -59,59 +57,75 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
     );
   }
 
-    ButtonStyle _retroButtonStyle() {
+  ButtonStyle _retroButtonStyle() {
     return ElevatedButton.styleFrom(
       backgroundColor: retroGreen, // Green button background
       foregroundColor: Colors.white, // White text
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8.0), // Slightly rounded corners
-        side: const BorderSide(color: retroDarkGreen, width: 3.0), // Darker border
+        side: const BorderSide(
+          color: retroDarkGreen,
+          width: 3.0,
+        ), // Darker border
       ),
       textStyle: _retroTextStyle(fontSize: 18),
-      elevation: 5, 
+      elevation: 5,
     );
   }
 
-    InputDecoration _retroInputDecoration(String labelText, String hintText) {
+  InputDecoration _retroInputDecoration(String labelText, String hintText) {
     return InputDecoration(
       labelText: labelText,
       hintText: hintText,
       labelStyle: _retroTextStyle(fontSize: 16, color: retroLightGray),
-      hintStyle: _retroTextStyle(fontSize: 16, color: retroLightGray.withOpacity(0.7)),
+      hintStyle: _retroTextStyle(
+        fontSize: 16,
+        color: retroLightGray.withOpacity(0.7),
+      ),
       filled: true,
-      fillColor: retroDarkGray.withOpacity(0.7), // Semi-transparent dark gray fill
+      fillColor: retroDarkGray.withOpacity(
+        0.7,
+      ), // Semi-transparent dark gray fill
       enabledBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: retroGreen, width: 2.0),
         borderRadius: BorderRadius.circular(8.0),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.cyanAccent, width: 3.0), // Brighter focus
+        borderSide: const BorderSide(
+          color: Colors.cyanAccent,
+          width: 3.0,
+        ), // Brighter focus
         borderRadius: BorderRadius.circular(8.0),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: retroDarkGreen, // Darker green background for the entire screen
+      backgroundColor:
+          retroDarkGreen, // Darker green background for the entire screen
       appBar: AppBar(
         title: Text(
           'MINESWEEPER DUO',
-          style: _retroTextStyle(fontSize: 24, color: Colors.cyanAccent), // Brighter title
+          style: _retroTextStyle(
+            fontSize: 24,
+            color: Colors.cyanAccent,
+          ), // Brighter title
         ),
         centerTitle: true,
         backgroundColor: retroBrown, // Brown app bar for a distinct header
         elevation: 10,
       ),
-      body: SingleChildScrollView( // Allow scrolling if content is too long
+      body: SingleChildScrollView(
+        // Allow scrolling if content is too long
         padding: const EdgeInsets.all(24.0), // More padding
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch cards horizontally
+          crossAxisAlignment:
+              CrossAxisAlignment.stretch, // Stretch cards horizontally
           children: [
             // Local Game Card
             _buildRetroCard(
@@ -119,7 +133,8 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    final game = Minesweeper(); // Assuming Minesweeper is your local game class
+                    final game =
+                        Minesweeper(); // Assuming Minesweeper is your local game class
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -133,7 +148,6 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
               ],
             ),
             const SizedBox(height: 24), // Increased spacing
-
             // Host Game Card
             _buildRetroCard(
               title: 'HOST GAME',
@@ -144,57 +158,68 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                     style: _retroTextStyle(fontSize: 16, color: retroLightGray),
                     textAlign: TextAlign.center,
                   ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: portController,
-                  keyboardType: TextInputType.number,
-                  style: _retroTextStyle(fontSize: 16), // Apply retro text style to input
-                  decoration: _retroInputDecoration('HOSTING PORT', '3000'),
-                ),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () {
                     final gameInstance = MinesweeperGame(
                       isHost: true,
                       localIp: InternetAddress.tryParse(localIp!),
-                      port: Port(
-                        int.parse(
-                          portController.text.isNotEmpty ? portController.text : '3000',
-                        ),
-                      ),
                     );
 
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => Scaffold(
-                          appBar: AppBar(
-                            title: Text('MINESWEEPER GAME', style: _retroTextStyle(fontSize: 20, color: Colors.white)),
-                            backgroundColor: retroBrown,
-                          ),
-                          body: Center(
-                            child: Container(
-                              width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
-                              height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50,
-                              color: retroDarkGreen, // Retro background for game area
-                              child: GestureDetector(
-                                onTapDown: (TapDownDetails details) {
-                                  gameInstance.handleTap(details.localPosition);
-                                },
-                                onLongPressStart: (LongPressStartDetails details) {
-                                  gameInstance.handleFlagAction(details.localPosition);
-                                },
-                                onSecondaryTapDown: (TapDownDetails details) {
-                                  gameInstance.handleFlagAction(details.localPosition);
-                                },
-                                child: GameWidget(
-                                  game: gameInstance,
-                                  mouseCursor: SystemMouseCursors.basic,
+                        builder:
+                            (context) => Scaffold(
+                              appBar: AppBar(
+                                title: Text(
+                                  'MINESWEEPER GAME',
+                                  style: _retroTextStyle(
+                                    fontSize: 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                backgroundColor: retroBrown,
+                              ),
+                              body: Center(
+                                child: Container(
+                                  width:
+                                      MinesweeperGame.gridSize *
+                                      MinesweeperGame.cellSize,
+                                  height:
+                                      MinesweeperGame.gridSize *
+                                          MinesweeperGame.cellSize +
+                                      50,
+                                  color:
+                                      retroDarkGreen, // Retro background for game area
+                                  child: GestureDetector(
+                                    onTapDown: (TapDownDetails details) {
+                                      gameInstance.handleTap(
+                                        details.localPosition,
+                                      );
+                                    },
+                                    onLongPressStart: (
+                                      LongPressStartDetails details,
+                                    ) {
+                                      gameInstance.handleFlagAction(
+                                        details.localPosition,
+                                      );
+                                    },
+                                    onSecondaryTapDown: (
+                                      TapDownDetails details,
+                                    ) {
+                                      gameInstance.handleFlagAction(
+                                        details.localPosition,
+                                      );
+                                    },
+                                    child: GameWidget(
+                                      game: gameInstance,
+                                      mouseCursor: SystemMouseCursors.basic,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
                       ),
                     );
                   },
@@ -213,7 +238,10 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                   controller: ipController,
                   keyboardType: TextInputType.text,
                   style: _retroTextStyle(fontSize: 16),
-                  decoration: _retroInputDecoration('HOST IP ADDRESS', '192.168.1.100'),
+                  decoration: _retroInputDecoration(
+                    'HOST IP ADDRESS',
+                    '192.168.1.100',
+                  ),
                 ),
                 const SizedBox(height: 15),
                 TextField(
@@ -222,22 +250,17 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                   style: _retroTextStyle(fontSize: 16),
                   decoration: _retroInputDecoration('HOSTING PORT', '3000'),
                 ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: gameIdController,
-                  keyboardType: TextInputType.text,
-                  style: _retroTextStyle(fontSize: 16),
-                  decoration: _retroInputDecoration('GAME ID (IF REQUIRED)', ''),
-                ),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () {
                     final gameInstance = MinesweeperGame(
                       isHost: false,
-                      localIp: InternetAddress.tryParse(localIp!) ?? InternetAddress.loopbackIPv4, // Use entered IP
+                      localIp: InternetAddress.tryParse(ipController.text),
                       port: Port(
                         int.parse(
-                          portController.text.isNotEmpty ? portController.text : '3000',
+                          portController.text.isNotEmpty
+                              ? portController.text
+                              : '3000',
                         ),
                       ),
                     );
@@ -245,34 +268,56 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => Scaffold(
-                          appBar: AppBar(
-                            title: Text('MINESWEEPER GAME', style: _retroTextStyle(fontSize: 20, color: Colors.white)),
-                            backgroundColor: retroBrown,
-                          ),
-                          body: Center(
-                            child: Container(
-                              width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
-                              height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50,
-                              color: retroDarkGreen,
-                              child: GestureDetector(
-                                onTapDown: (TapDownDetails details) {
-                                  gameInstance.handleTap(details.localPosition);
-                                },
-                                onLongPressStart: (LongPressStartDetails details) {
-                                  gameInstance.handleFlagAction(details.localPosition);
-                                },
-                                onSecondaryTapDown: (TapDownDetails details) {
-                                  gameInstance.handleFlagAction(details.localPosition);
-                                },
-                                child: GameWidget(
-                                  game: gameInstance,
-                                  mouseCursor: SystemMouseCursors.basic,
+                        builder:
+                            (context) => Scaffold(
+                              appBar: AppBar(
+                                title: Text(
+                                  'MINESWEEPER GAME',
+                                  style: _retroTextStyle(
+                                    fontSize: 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                backgroundColor: retroBrown,
+                              ),
+                              body: Center(
+                                child: Container(
+                                  width:
+                                      MinesweeperGame.gridSize *
+                                      MinesweeperGame.cellSize,
+                                  height:
+                                      MinesweeperGame.gridSize *
+                                          MinesweeperGame.cellSize +
+                                      50,
+                                  color: retroDarkGreen,
+                                  child: GestureDetector(
+                                    onTapDown: (TapDownDetails details) {
+                                      gameInstance.handleTap(
+                                        details.localPosition,
+                                      );
+                                    },
+                                    onLongPressStart: (
+                                      LongPressStartDetails details,
+                                    ) {
+                                      gameInstance.handleFlagAction(
+                                        details.localPosition,
+                                      );
+                                    },
+                                    onSecondaryTapDown: (
+                                      TapDownDetails details,
+                                    ) {
+                                      gameInstance.handleFlagAction(
+                                        details.localPosition,
+                                      );
+                                    },
+                                    child: GameWidget(
+                                      game: gameInstance,
+                                      mouseCursor: SystemMouseCursors.basic,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
                       ),
                     );
                   },
@@ -288,13 +333,19 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
   }
 
   // Helper widget to build consistent retro cards
-  Widget _buildRetroCard({required String title, required List<Widget> children}) {
+  Widget _buildRetroCard({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Card(
       elevation: 8,
       color: retroDarkGray, // Dark gray background for cards
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12.0),
-        side: const BorderSide(color: retroGreen, width: 3.0), // Green border for cards
+        side: const BorderSide(
+          color: retroGreen,
+          width: 3.0,
+        ), // Green border for cards
       ),
       child: Padding(
         padding: const EdgeInsets.all(20.0), // Increased padding
@@ -302,7 +353,10 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
           children: [
             Text(
               title,
-              style: _retroTextStyle(fontSize: 22, color: Colors.cyanAccent), // Brighter titles
+              style: _retroTextStyle(
+                fontSize: 22,
+                color: Colors.cyanAccent,
+              ), // Brighter titles
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
