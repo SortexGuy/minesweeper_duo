@@ -2,9 +2,7 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
-
 import 'package:minesweeper_duo/components/cell.dart';
-
 
 class Minesweeper extends FlameGame with TapDetector {
   // Game constants

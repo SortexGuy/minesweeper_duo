@@ -1,6 +1,7 @@
 // ignore_for_file: library_private_types_in_public_api
 import 'dart:io';
 import 'package:flame/game.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:minesweeper_duo/minesweeper.dart';
 import 'package:udp/udp.dart';
@@ -170,56 +171,7 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                       context,
                       MaterialPageRoute(
                         builder:
-                            (context) => Scaffold(
-                              appBar: AppBar(
-                                title: Text(
-                                  'MINESWEEPER GAME',
-                                  style: _retroTextStyle(
-                                    fontSize: 20,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                backgroundColor: retroBrown,
-                              ),
-                              body: Center(
-                                child: Container(
-                                  width:
-                                      MinesweeperGame.gridSize *
-                                      MinesweeperGame.cellSize,
-                                  height:
-                                      MinesweeperGame.gridSize *
-                                          MinesweeperGame.cellSize +
-                                      50,
-                                  color:
-                                      retroDarkGreen, // Retro background for game area
-                                  child: GestureDetector(
-                                    onTapDown: (TapDownDetails details) {
-                                      gameInstance.handleTap(
-                                        details.localPosition,
-                                      );
-                                    },
-                                    onLongPressStart: (
-                                      LongPressStartDetails details,
-                                    ) {
-                                      gameInstance.handleFlagAction(
-                                        details.localPosition,
-                                      );
-                                    },
-                                    onSecondaryTapDown: (
-                                      TapDownDetails details,
-                                    ) {
-                                      gameInstance.handleFlagAction(
-                                        details.localPosition,
-                                      );
-                                    },
-                                    child: GameWidget(
-                                      game: gameInstance,
-                                      mouseCursor: SystemMouseCursors.basic,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                            (context) => _gameBuilder(context, gameInstance),
                       ),
                     );
                   },
@@ -269,55 +221,7 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
                       context,
                       MaterialPageRoute(
                         builder:
-                            (context) => Scaffold(
-                              appBar: AppBar(
-                                title: Text(
-                                  'MINESWEEPER GAME',
-                                  style: _retroTextStyle(
-                                    fontSize: 20,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                backgroundColor: retroBrown,
-                              ),
-                              body: Center(
-                                child: Container(
-                                  width:
-                                      MinesweeperGame.gridSize *
-                                      MinesweeperGame.cellSize,
-                                  height:
-                                      MinesweeperGame.gridSize *
-                                          MinesweeperGame.cellSize +
-                                      50,
-                                  color: retroDarkGreen,
-                                  child: GestureDetector(
-                                    onTapDown: (TapDownDetails details) {
-                                      gameInstance.handleTap(
-                                        details.localPosition,
-                                      );
-                                    },
-                                    onLongPressStart: (
-                                      LongPressStartDetails details,
-                                    ) {
-                                      gameInstance.handleFlagAction(
-                                        details.localPosition,
-                                      );
-                                    },
-                                    onSecondaryTapDown: (
-                                      TapDownDetails details,
-                                    ) {
-                                      gameInstance.handleFlagAction(
-                                        details.localPosition,
-                                      );
-                                    },
-                                    child: GameWidget(
-                                      game: gameInstance,
-                                      mouseCursor: SystemMouseCursors.basic,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                            (context) => _gameBuilder(context, gameInstance),
                       ),
                     );
                   },
@@ -330,6 +234,47 @@ class _P2PLobbyScreenState extends State<P2PLobbyScreen> {
         ),
       ),
     );
+  }
+
+  Widget _gameBuilder(context, gameInstance) {
+    final widget = Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'MINESWEEPER GAME',
+          style: _retroTextStyle(fontSize: 20, color: Colors.white),
+        ),
+        backgroundColor: retroBrown,
+      ),
+      body: Center(
+        child: Container(
+          width: MinesweeperGame.gridSize * MinesweeperGame.cellSize,
+          height: MinesweeperGame.gridSize * MinesweeperGame.cellSize + 50,
+          color: retroDarkGreen,
+          child: GestureDetector(
+            onTapUp: (TapUpDetails details) {
+              gameInstance.handleTap(details.localPosition);
+            },
+            // onLongPressStart: (LongPressStartDetails details) {
+            //   gameInstance.handleFlagAction(details.localPosition);
+            // },
+            onLongPressEnd: (LongPressEndDetails details) {
+              gameInstance.handleFlagAction(details.localPosition);
+            },
+            onSecondaryTapDown: (TapDownDetails details) {
+              gameInstance.handleFlagAction(details.localPosition);
+            },
+            onDoubleTapDown: (TapDownDetails details) {
+              gameInstance.handleFlagAction(details.localPosition);
+            },
+            child: GameWidget(
+              game: gameInstance,
+              mouseCursor: SystemMouseCursors.basic,
+            ),
+          ),
+        ),
+      ),
+    );
+    return widget;
   }
 
   // Helper widget to build consistent retro cards
